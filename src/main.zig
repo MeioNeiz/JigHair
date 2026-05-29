@@ -28,9 +28,16 @@ pub fn main() !void {
     };
     if (win32.RegisterClassExW(&wc) == 0) return error.RegisterClassFailed;
 
-    // For v1: cover the primary monitor. Multi-monitor: switch to virtual-screen metrics later.
+    // Small bounded window sized to the crosshair, centered (+offset) on the primary
+    // monitor. Far less surface for DWM to composite than a full-screen overlay.
     const screen_w = win32.GetSystemMetrics(win32.SM_CXSCREEN);
     const screen_h = win32.GetSystemMetrics(win32.SM_CYSCREEN);
+
+    const dim = crosshair_mod.windowSize(cfg.crosshair);
+    const center_x = @divTrunc(screen_w, 2) + cfg.crosshair.offset_x;
+    const center_y = @divTrunc(screen_h, 2) + cfg.crosshair.offset_y;
+    const win_x = std.math.clamp(center_x - @divTrunc(dim, 2), 0, @max(0, screen_w - dim));
+    const win_y = std.math.clamp(center_y - @divTrunc(dim, 2), 0, @max(0, screen_h - dim));
 
     const ex_style =
         win32.WS_EX_LAYERED |
@@ -45,10 +52,10 @@ pub fn main() !void {
         CLASS_NAME,
         TITLE,
         style,
-        0,
-        0,
-        screen_w,
-        screen_h,
+        win_x,
+        win_y,
+        dim,
+        dim,
         null,
         null,
         hinstance,
@@ -64,7 +71,7 @@ pub fn main() !void {
         win32.VK_F8,
     );
 
-    var renderer = try renderer_mod.Renderer.init(screen_w, screen_h);
+    var renderer = try renderer_mod.Renderer.init(dim, dim);
     defer renderer.deinit();
 
     crosshair_mod.draw(&renderer, cfg.crosshair);

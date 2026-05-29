@@ -7,8 +7,9 @@ const CrosshairConfig = @import("config.zig").CrosshairConfig;
 pub fn draw(r: *Renderer, cfg: CrosshairConfig) void {
     r.clear();
 
-    const cx = @divTrunc(r.width, 2) + cfg.offset_x;
-    const cy = @divTrunc(r.height, 2) + cfg.offset_y;
+    // Centered in the window; offset is applied to the window position (main.zig).
+    const cx = @divTrunc(r.width, 2);
+    const cy = @divTrunc(r.height, 2);
 
     const color = Pixel{
         .r = cfg.color[0],
@@ -58,4 +59,28 @@ pub fn draw(r: *Renderer, cfg: CrosshairConfig) void {
         const ds = cfg.dot_size;
         r.fillRect(cx - @divTrunc(ds, 2), cy - @divTrunc(ds, 2), ds, ds, color);
     }
+}
+
+/// Breathing room around the bounding box; absorbs integer-centering bias.
+const MARGIN: i32 = 2;
+
+/// Max distance, in px, any drawn pixel sits from the crosshair center for `cfg`.
+pub fn extent(cfg: CrosshairConfig) i32 {
+    const o: i32 = if (cfg.outline > 0) cfg.outline else 0;
+    var half: i32 = 0;
+    if (cfg.length > 0) {
+        half = @max(half, cfg.gap + cfg.length + o);
+        half = @max(half, ceilHalf(cfg.thickness) + o);
+    }
+    if (cfg.dot) half = @max(half, ceilHalf(cfg.dot_size) + o);
+    return @max(0, half);
+}
+
+/// Square side, in px, of the overlay window needed to hold the crosshair.
+pub fn windowSize(cfg: CrosshairConfig) i32 {
+    return @max(2, (extent(cfg) + MARGIN) * 2);
+}
+
+fn ceilHalf(v: i32) i32 {
+    return if (v > 0) @divTrunc(v + 1, 2) else 0;
 }
