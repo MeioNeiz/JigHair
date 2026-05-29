@@ -28,9 +28,15 @@ pub const Config = struct {
 
 /// Loads the JSON config from %APPDATA%\JigHair\config.json.
 /// Falls back to defaults if missing or malformed.
-pub fn load(allocator: std.mem.Allocator) Config {
+pub fn load() Config {
+    // One-shot at startup. A stack FixedBufferAllocator avoids a leak-tracking
+    // allocator and the heap entirely; the buffer (and any JSON arena in it) is
+    // discarded on return. Config has no slice fields, so the value owns nothing.
+    var buf: [64 * 1024]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&buf);
+    const allocator = fba.allocator();
+
     const path = configPath(allocator) catch return .{};
-    defer allocator.free(path);
 
     var io_threaded: std.Io.Threaded = .init(allocator, .{});
     defer io_threaded.deinit();
@@ -39,9 +45,9 @@ pub fn load(allocator: std.mem.Allocator) Config {
     var file = std.Io.Dir.openFileAbsolute(io, path, .{}) catch return .{};
     defer file.close(io);
 
-    var file_reader = file.reader(io, &.{});
-    const contents = file_reader.interface.allocRemaining(allocator, .limited(1 << 20)) catch return .{};
-    defer allocator.free(contents);
+    var read_buf: [4096]u8 = undefined;
+    var file_reader = file.reader(io, &read_buf);
+    const contents = file_reader.interface.allocRemaining(allocator, .limited(16 * 1024)) catch return .{};
 
     const parsed = std.json.parseFromSlice(
         Config,
@@ -49,9 +55,7 @@ pub fn load(allocator: std.mem.Allocator) Config {
         contents,
         .{ .ignore_unknown_fields = true },
     ) catch return .{};
-    defer parsed.deinit();
 
-    // Config has no slice fields, so returning by value is safe.
     return parsed.value;
 }
 

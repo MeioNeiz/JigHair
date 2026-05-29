@@ -13,11 +13,7 @@ pub fn main() !void {
     // logical pixels and the overlay is mis-sized/blurry on scaled displays.
     _ = win32.SetProcessDpiAwarenessContext(win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    var gpa: std.heap.DebugAllocator(.{}) = .{};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    const cfg = config_mod.load(allocator);
+    const cfg = config_mod.load();
 
     const hinstance = win32.GetModuleHandleW(null);
 
