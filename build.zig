@@ -4,7 +4,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{ .os_tag = .windows },
     });
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.option(
+        std.builtin.OptimizeMode,
+        "optimize",
+        "Optimize mode (default: ReleaseSmall)",
+    ) orelse .ReleaseSmall;
 
     const exe = b.addExecutable(.{
         .name = "JigHair",

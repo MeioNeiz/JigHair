@@ -9,6 +9,10 @@ const CLASS_NAME = std.unicode.utf8ToUtf16LeStringLiteral("JigHairWindow");
 const TITLE = std.unicode.utf8ToUtf16LeStringLiteral("jig+hair");
 
 pub fn main() !void {
+    // Must run before any window/metrics call, else SM_CXSCREEN etc. return
+    // logical pixels and the overlay is mis-sized/blurry on scaled displays.
+    _ = win32.SetProcessDpiAwarenessContext(win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     var gpa: std.heap.DebugAllocator(.{}) = .{};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();

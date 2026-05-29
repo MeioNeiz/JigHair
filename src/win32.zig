@@ -139,6 +139,11 @@ pub const MOD_SHIFT: UINT = 0x0004;
 pub const MOD_NOREPEAT: UINT = 0x4000;
 pub const VK_F8: UINT = 0x77;
 
+// ---- DPI awareness ----
+pub const DPI_AWARENESS_CONTEXT = HANDLE;
+pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: DPI_AWARENESS_CONTEXT =
+    @ptrFromInt(@as(usize, @bitCast(@as(isize, -4))));
+
 // ---- kernel32 ----
 pub extern "kernel32" fn GetModuleHandleW(?LPCWSTR) callconv(WINAPI) HINSTANCE;
 pub extern "kernel32" fn GetLastError() callconv(WINAPI) DWORD;
@@ -153,6 +158,7 @@ pub extern "user32" fn TranslateMessage(*const MSG) callconv(WINAPI) BOOL;
 pub extern "user32" fn DispatchMessageW(*const MSG) callconv(WINAPI) LRESULT;
 pub extern "user32" fn PostQuitMessage(INT) callconv(WINAPI) void;
 pub extern "user32" fn GetSystemMetrics(INT) callconv(WINAPI) INT;
+pub extern "user32" fn SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT) callconv(WINAPI) BOOL;
 pub extern "user32" fn GetDC(HWND) callconv(WINAPI) HDC;
 pub extern "user32" fn ReleaseDC(HWND, HDC) callconv(WINAPI) INT;
 pub extern "user32" fn UpdateLayeredWindow(HWND, HDC, ?*POINT, ?*SIZE, HDC, ?*POINT, DWORD, ?*const BLENDFUNCTION, DWORD) callconv(WINAPI) BOOL;

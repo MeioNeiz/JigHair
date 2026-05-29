@@ -5,11 +5,12 @@ Draws a customizable crosshair at the center of your screen — no console windo
 
 ## Build
 
-Requires Zig 0.14.0+.
+Requires Zig 0.16.0+.
 
 ```sh
-zig build          # produces zig-out/bin/JigHair.exe
-zig build run      # build and run the overlay
+zig build                    # ReleaseSmall by default -> zig-out/bin/JigHair.exe
+zig build run                # build and run the overlay
+zig build -Doptimize=Debug   # debug build with safety checks
 ```
 
 ## Configuration
