@@ -5,8 +5,9 @@ const renderer_mod = @import("renderer.zig");
 const crosshair_mod = @import("crosshair.zig");
 const config_mod = @import("config.zig");
 
-const CLASS_NAME = std.unicode.utf8ToUtf16LeStringLiteral("JigHairWindow");
-const TITLE = std.unicode.utf8ToUtf16LeStringLiteral("jig+hair");
+const OVERLAY_CLASS = std.unicode.utf8ToUtf16LeStringLiteral("JigHairWindow");
+const CONTROL_CLASS = std.unicode.utf8ToUtf16LeStringLiteral("JigHairControl");
+const TITLE = std.unicode.utf8ToUtf16LeStringLiteral("JigHair");
 
 pub fn main() !void {
     // Must run before any window/metrics call, else SM_CXSCREEN etc. return
@@ -14,72 +15,98 @@ pub fn main() !void {
     _ = win32.SetProcessDpiAwarenessContext(win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
     const cfg = config_mod.load();
-
     const hinstance = win32.GetModuleHandleW(null);
 
-    var wc = win32.WNDCLASSEXW{
-        .lpfnWndProc = window_mod.wndProc,
+    var overlay_wc = win32.WNDCLASSEXW{
+        .lpfnWndProc = window_mod.overlayProc,
         .hInstance = hinstance,
-        .lpszClassName = CLASS_NAME,
+        .lpszClassName = OVERLAY_CLASS,
     };
-    if (win32.RegisterClassExW(&wc) == 0) return error.RegisterClassFailed;
+    if (win32.RegisterClassExW(&overlay_wc) == 0) return error.RegisterClassFailed;
 
-    // Small bounded window sized to the crosshair, centered (+offset) on the primary
-    // monitor. Far less surface for DWM to composite than a full-screen overlay.
+    var control_wc = win32.WNDCLASSEXW{
+        .lpfnWndProc = window_mod.controlProc,
+        .hInstance = hinstance,
+        .lpszClassName = CONTROL_CLASS,
+    };
+    if (win32.RegisterClassExW(&control_wc) == 0) return error.RegisterClassFailed;
+
     const screen_w = win32.GetSystemMetrics(win32.SM_CXSCREEN);
     const screen_h = win32.GetSystemMetrics(win32.SM_CYSCREEN);
+    const place = crosshair_mod.placement(cfg.crosshair, screen_w, screen_h);
 
-    const dim = crosshair_mod.windowSize(cfg.crosshair);
-    const center_x = @divTrunc(screen_w, 2) + cfg.crosshair.offset_x;
-    const center_y = @divTrunc(screen_h, 2) + cfg.crosshair.offset_y;
-    const win_x = std.math.clamp(center_x - @divTrunc(dim, 2), 0, @max(0, screen_w - dim));
-    const win_y = std.math.clamp(center_y - @divTrunc(dim, 2), 0, @max(0, screen_h - dim));
-
+    // Small bounded overlay window: far less surface for DWM to composite than a
+    // full-screen layered window. Click-through + no-activate = zero input lag.
     const ex_style =
         win32.WS_EX_LAYERED |
         win32.WS_EX_TRANSPARENT |
         win32.WS_EX_TOPMOST |
         win32.WS_EX_TOOLWINDOW |
         win32.WS_EX_NOACTIVATE;
-    const style = win32.WS_POPUP | win32.WS_VISIBLE;
-
-    const hwnd = win32.CreateWindowExW(
+    const overlay = win32.CreateWindowExW(
         ex_style,
-        CLASS_NAME,
+        OVERLAY_CLASS,
         TITLE,
-        style,
-        win_x,
-        win_y,
-        dim,
-        dim,
+        win32.WS_POPUP | win32.WS_VISIBLE,
+        place.x,
+        place.y,
+        place.dim,
+        place.dim,
         null,
         null,
         hinstance,
         null,
     );
-    if (hwnd == null) return error.CreateWindowFailed;
+    if (overlay == null) return error.CreateWindowFailed;
 
-    // Ctrl+Alt+F8 to quit (no tray icon yet).
+    // Hidden control window: never shown; just receives tray/menu/hotkey messages.
+    const control = win32.CreateWindowExW(
+        0,
+        CONTROL_CLASS,
+        TITLE,
+        win32.WS_POPUP,
+        0,
+        0,
+        0,
+        0,
+        null,
+        null,
+        hinstance,
+        null,
+    );
+    if (control == null) return error.CreateWindowFailed;
+
     _ = win32.RegisterHotKey(
-        hwnd,
+        control,
         window_mod.HOTKEY_QUIT,
         win32.MOD_CONTROL | win32.MOD_ALT | win32.MOD_NOREPEAT,
         win32.VK_F8,
     );
+    defer _ = win32.UnregisterHotKey(control, window_mod.HOTKEY_QUIT);
 
-    var renderer = try renderer_mod.Renderer.init(dim, dim);
+    var renderer = try renderer_mod.Renderer.init(place.dim, place.dim);
     defer renderer.deinit();
 
-    crosshair_mod.draw(&renderer, cfg.crosshair);
-    try renderer.present(hwnd);
+    var app = window_mod.App{
+        .overlay = overlay,
+        .renderer = &renderer,
+        .cfg = cfg,
+        .visible = true,
+        .screen_w = screen_w,
+        .screen_h = screen_h,
+    };
+    _ = win32.SetWindowLongPtrW(control, win32.GWLP_USERDATA, @bitCast(@intFromPtr(&app)));
 
-    _ = win32.ShowWindow(hwnd, win32.SW_SHOWNOACTIVATE);
+    window_mod.addTray(control);
+    defer window_mod.removeTray(control);
+
+    crosshair_mod.draw(&renderer, cfg.crosshair);
+    try renderer.present(overlay);
+    _ = win32.ShowWindow(overlay, win32.SW_SHOWNOACTIVATE);
 
     var msg: win32.MSG = undefined;
     while (win32.GetMessageW(&msg, null, 0, 0) > 0) {
         _ = win32.TranslateMessage(&msg);
         _ = win32.DispatchMessageW(&msg);
     }
-
-    _ = win32.UnregisterHotKey(hwnd, window_mod.HOTKEY_QUIT);
 }

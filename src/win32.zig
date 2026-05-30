@@ -171,3 +171,97 @@ pub extern "gdi32" fn DeleteDC(HDC) callconv(WINAPI) BOOL;
 pub extern "gdi32" fn CreateDIBSection(HDC, *const BITMAPINFO, UINT, *?*anyopaque, HANDLE, DWORD) callconv(WINAPI) HBITMAP;
 pub extern "gdi32" fn SelectObject(HDC, HGDIOBJ) callconv(WINAPI) HGDIOBJ;
 pub extern "gdi32" fn DeleteObject(HGDIOBJ) callconv(WINAPI) BOOL;
+
+// ---- Tray / menu / shell messages ----
+pub const WM_NULL: UINT = 0x0000;
+pub const WM_COMMAND: UINT = 0x0111;
+pub const WM_RBUTTONUP: UINT = 0x0205;
+pub const WM_LBUTTONDBLCLK: UINT = 0x0203;
+pub const WM_CONTEXTMENU: UINT = 0x007B;
+pub const WM_APP: UINT = 0x8000;
+pub const WM_TRAYICON: UINT = WM_APP + 1;
+
+// ---- Window long pointers ----
+pub const GWLP_USERDATA: INT = -21;
+
+// ---- SetWindowPos flags ----
+pub const SWP_NOSIZE: UINT = 0x0001;
+pub const SWP_NOMOVE: UINT = 0x0002;
+pub const SWP_NOZORDER: UINT = 0x0004;
+pub const SWP_NOACTIVATE: UINT = 0x0010;
+
+// ---- Menus ----
+pub const MF_STRING: UINT = 0x0000;
+pub const MF_CHECKED: UINT = 0x0008;
+pub const MF_UNCHECKED: UINT = 0x0000;
+pub const MF_SEPARATOR: UINT = 0x0800;
+pub const TPM_RIGHTBUTTON: UINT = 0x0002;
+
+// ---- Stock icon ----
+pub const IDI_APPLICATION: LPCWSTR = @ptrFromInt(32512);
+
+// ---- Shell_NotifyIcon ----
+pub const NIM_ADD: DWORD = 0x0;
+pub const NIM_MODIFY: DWORD = 0x1;
+pub const NIM_DELETE: DWORD = 0x2;
+pub const NIF_MESSAGE: UINT = 0x1;
+pub const NIF_ICON: UINT = 0x2;
+pub const NIF_TIP: UINT = 0x4;
+
+// ---- ShellExecute ----
+pub const SW_SHOWNORMAL: INT = 1;
+
+// ---- CreateFile ----
+pub const GENERIC_WRITE: DWORD = 0x40000000;
+pub const CREATE_NEW: DWORD = 1;
+pub const FILE_ATTRIBUTE_NORMAL: DWORD = 0x80;
+pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(@as(usize, @bitCast(@as(isize, -1))));
+
+pub const GUID = extern struct {
+    Data1: u32 = 0,
+    Data2: u16 = 0,
+    Data3: u16 = 0,
+    Data4: [8]u8 = [_]u8{0} ** 8,
+};
+
+pub const NOTIFYICONDATAW = extern struct {
+    cbSize: DWORD = @sizeOf(NOTIFYICONDATAW),
+    hWnd: HWND,
+    uID: UINT = 0,
+    uFlags: UINT = 0,
+    uCallbackMessage: UINT = 0,
+    hIcon: HICON = null,
+    szTip: [128]u16 = [_]u16{0} ** 128,
+    dwState: DWORD = 0,
+    dwStateMask: DWORD = 0,
+    szInfo: [256]u16 = [_]u16{0} ** 256,
+    uVersion: UINT = 0,
+    szInfoTitle: [64]u16 = [_]u16{0} ** 64,
+    dwInfoFlags: DWORD = 0,
+    guidItem: GUID = .{},
+    hBalloonIcon: HICON = null,
+};
+
+// ---- user32 (tray / menu / window state) ----
+pub extern "user32" fn LoadIconW(HINSTANCE, LPCWSTR) callconv(WINAPI) HICON;
+pub extern "user32" fn CreatePopupMenu() callconv(WINAPI) HMENU;
+pub extern "user32" fn AppendMenuW(HMENU, UINT, UINT_PTR, ?LPCWSTR) callconv(WINAPI) BOOL;
+pub extern "user32" fn TrackPopupMenu(HMENU, UINT, INT, INT, INT, HWND, ?*const RECT) callconv(WINAPI) BOOL;
+pub extern "user32" fn DestroyMenu(HMENU) callconv(WINAPI) BOOL;
+pub extern "user32" fn SetForegroundWindow(HWND) callconv(WINAPI) BOOL;
+pub extern "user32" fn GetCursorPos(*POINT) callconv(WINAPI) BOOL;
+pub extern "user32" fn PostMessageW(HWND, UINT, WPARAM, LPARAM) callconv(WINAPI) BOOL;
+pub extern "user32" fn DestroyWindow(HWND) callconv(WINAPI) BOOL;
+pub extern "user32" fn SetWindowLongPtrW(HWND, INT, LONG_PTR) callconv(WINAPI) LONG_PTR;
+pub extern "user32" fn GetWindowLongPtrW(HWND, INT) callconv(WINAPI) LONG_PTR;
+pub extern "user32" fn SetWindowPos(HWND, HWND, INT, INT, INT, INT, UINT) callconv(WINAPI) BOOL;
+
+// ---- shell32 ----
+pub extern "shell32" fn Shell_NotifyIconW(DWORD, *NOTIFYICONDATAW) callconv(WINAPI) BOOL;
+pub extern "shell32" fn ShellExecuteW(HWND, ?LPCWSTR, LPCWSTR, ?LPCWSTR, ?LPCWSTR, INT) callconv(WINAPI) HINSTANCE;
+
+// ---- kernel32 (config dir / file) ----
+pub extern "kernel32" fn CreateDirectoryW(LPCWSTR, ?*anyopaque) callconv(WINAPI) BOOL;
+pub extern "kernel32" fn CreateFileW(LPCWSTR, DWORD, DWORD, ?*anyopaque, DWORD, DWORD, HANDLE) callconv(WINAPI) HANDLE;
+pub extern "kernel32" fn WriteFile(HANDLE, [*]const u8, DWORD, *DWORD, ?*anyopaque) callconv(WINAPI) BOOL;
+pub extern "kernel32" fn CloseHandle(HANDLE) callconv(WINAPI) BOOL;

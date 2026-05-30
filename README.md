@@ -1,4 +1,4 @@
-# jig+hair
+# JigHair
 
 A lightweight, always-on-top crosshair overlay for Windows, written in [Zig](https://ziglang.org).
 Draws a customizable crosshair at the center of your screen — no console window, no dependencies beyond the Win32 API.
@@ -15,7 +15,7 @@ zig build -Doptimize=Debug   # debug build with safety checks
 
 ## Configuration
 
-On startup, `jig+hair` looks for a config file at:
+On startup, `JigHair` looks for a config file at:
 
 ```
 %APPDATA%\JigHair\config.json

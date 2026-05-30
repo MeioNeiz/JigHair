@@ -1,4 +1,4 @@
-# jig+hair — Audit, Test Report & Improvement Plan
+# JigHair — Audit, Test Report & Improvement Plan
 
 _Last updated: 2026-05-28 · Toolchain verified: Zig 0.16.0 (WinGet) · OS: Windows 11 26200_
 

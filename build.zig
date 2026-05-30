@@ -26,6 +26,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.linkSystemLibrary("user32", .{});
     exe.root_module.linkSystemLibrary("gdi32", .{});
     exe.root_module.linkSystemLibrary("kernel32", .{});
+    exe.root_module.linkSystemLibrary("shell32", .{});
 
     b.installArtifact(exe);
 

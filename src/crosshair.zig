@@ -84,3 +84,18 @@ pub fn windowSize(cfg: CrosshairConfig) i32 {
 fn ceilHalf(v: i32) i32 {
     return if (v > 0) @divTrunc(v + 1, 2) else 0;
 }
+
+pub const Placement = struct { x: i32, y: i32, dim: i32 };
+
+/// Window square + top-left so the crosshair sits at screen-centre + offset,
+/// clamped to stay on the primary monitor.
+pub fn placement(cfg: CrosshairConfig, screen_w: i32, screen_h: i32) Placement {
+    const dim = windowSize(cfg);
+    const cx = @divTrunc(screen_w, 2) + cfg.offset_x;
+    const cy = @divTrunc(screen_h, 2) + cfg.offset_y;
+    return .{
+        .x = std.math.clamp(cx - @divTrunc(dim, 2), 0, @max(0, screen_w - dim)),
+        .y = std.math.clamp(cy - @divTrunc(dim, 2), 0, @max(0, screen_h - dim)),
+        .dim = dim,
+    };
+}

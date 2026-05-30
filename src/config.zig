@@ -29,14 +29,12 @@ pub const Config = struct {
 /// Loads the JSON config from %APPDATA%\JigHair\config.json.
 /// Falls back to defaults if missing or malformed.
 pub fn load() Config {
-    // One-shot at startup. A stack FixedBufferAllocator avoids a leak-tracking
-    // allocator and the heap entirely; the buffer (and any JSON arena in it) is
-    // discarded on return. Config has no slice fields, so the value owns nothing.
-    var buf: [64 * 1024]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&buf);
-    const allocator = fba.allocator();
+    // page_allocator, not FBA: getAlloc allocs+frees a whole env-map; an FBA never
+    // reclaims and OOMs. Config has no slices, so the returned value survives deinit.
+    const allocator = std.heap.page_allocator;
 
     const path = configPath(allocator) catch return .{};
+    defer allocator.free(path);
 
     var io_threaded: std.Io.Threaded = .init(allocator, .{});
     defer io_threaded.deinit();
@@ -48,6 +46,7 @@ pub fn load() Config {
     var read_buf: [4096]u8 = undefined;
     var file_reader = file.reader(io, &read_buf);
     const contents = file_reader.interface.allocRemaining(allocator, .limited(16 * 1024)) catch return .{};
+    defer allocator.free(contents);
 
     const parsed = std.json.parseFromSlice(
         Config,
@@ -55,6 +54,7 @@ pub fn load() Config {
         contents,
         .{ .ignore_unknown_fields = true },
     ) catch return .{};
+    defer parsed.deinit();
 
     return parsed.value;
 }
@@ -66,4 +66,23 @@ fn configPath(allocator: std.mem.Allocator) ![]u8 {
     };
     defer allocator.free(appdata);
     return try std.fs.path.join(allocator, &.{ appdata, "JigHair", "config.json" });
+}
+
+pub const Paths = struct { dir: [:0]u16, file: [:0]u16 };
+
+/// Wide, null-terminated %APPDATA%\JigHair dir + config.json paths. One getAlloc.
+/// Caller frees both `dir` and `file`.
+pub fn pathsW(allocator: std.mem.Allocator) !Paths {
+    const environ: std.process.Environ = .{ .block = .global };
+    const appdata = try environ.getAlloc(allocator, "APPDATA");
+    defer allocator.free(appdata);
+    const dir = try std.fs.path.join(allocator, &.{ appdata, "JigHair" });
+    defer allocator.free(dir);
+    const file = try std.fs.path.join(allocator, &.{ dir, "config.json" });
+    defer allocator.free(file);
+
+    const dir_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, dir);
+    errdefer allocator.free(dir_w);
+    const file_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, file);
+    return .{ .dir = dir_w, .file = file_w };
 }
