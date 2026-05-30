@@ -14,7 +14,8 @@ pub fn main() !void {
     // logical pixels and the overlay is mis-sized/blurry on scaled displays.
     _ = win32.SetProcessDpiAwarenessContext(win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    const cfg = config_mod.load();
+    const settings = config_mod.load();
+    const active = settings.activeCrosshair();
     const hinstance = win32.GetModuleHandleW(null);
 
     var overlay_wc = win32.WNDCLASSEXW{
@@ -31,9 +32,13 @@ pub fn main() !void {
     };
     if (win32.RegisterClassExW(&control_wc) == 0) return error.RegisterClassFailed;
 
-    const screen_w = win32.GetSystemMetrics(win32.SM_CXSCREEN);
-    const screen_h = win32.GetSystemMetrics(win32.SM_CYSCREEN);
-    const place = crosshair_mod.placement(cfg.crosshair, screen_w, screen_h);
+    const primary = crosshair_mod.MonitorRect{
+        .x = 0,
+        .y = 0,
+        .w = win32.GetSystemMetrics(win32.SM_CXSCREEN),
+        .h = win32.GetSystemMetrics(win32.SM_CYSCREEN),
+    };
+    const place = crosshair_mod.placement(active, primary);
 
     // Small bounded overlay window: far less surface for DWM to composite than a
     // full-screen layered window. Click-through + no-activate = zero input lag.
@@ -43,11 +48,13 @@ pub fn main() !void {
         win32.WS_EX_TOPMOST |
         win32.WS_EX_TOOLWINDOW |
         win32.WS_EX_NOACTIVATE;
+    // No WS_VISIBLE: we show explicitly after the first present (and in foreground
+    // mode only when a target app is focused), so the overlay never flashes empty.
     const overlay = win32.CreateWindowExW(
         ex_style,
         OVERLAY_CLASS,
         TITLE,
-        win32.WS_POPUP | win32.WS_VISIBLE,
+        win32.WS_POPUP,
         place.x,
         place.y,
         place.dim,
@@ -90,19 +97,24 @@ pub fn main() !void {
     var app = window_mod.App{
         .overlay = overlay,
         .renderer = &renderer,
-        .cfg = cfg,
+        .settings = settings,
         .visible = true,
-        .screen_w = screen_w,
-        .screen_h = screen_h,
+        .hinstance = hinstance,
+        .primary = primary,
+        .mon = primary,
     };
     _ = win32.SetWindowLongPtrW(control, win32.GWLP_USERDATA, @bitCast(@intFromPtr(&app)));
 
     window_mod.addTray(control);
     defer window_mod.removeTray(control);
 
-    crosshair_mod.draw(&renderer, cfg.crosshair);
+    // Draw + present once so the layered window has content, then let the
+    // visibility mode decide whether/where to show it (and install the
+    // foreground hook if needed).
+    crosshair_mod.draw(&renderer, active);
     try renderer.present(overlay);
-    _ = win32.ShowWindow(overlay, win32.SW_SHOWNOACTIVATE);
+    window_mod.applyVisibilityMode(&app);
+    defer window_mod.removeForegroundHook();
 
     var msg: win32.MSG = undefined;
     while (win32.GetMessageW(&msg, null, 0, 0) > 0) {

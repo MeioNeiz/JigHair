@@ -87,15 +87,18 @@ fn ceilHalf(v: i32) i32 {
 
 pub const Placement = struct { x: i32, y: i32, dim: i32 };
 
-/// Window square + top-left so the crosshair sits at screen-centre + offset,
-/// clamped to stay on the primary monitor.
-pub fn placement(cfg: CrosshairConfig, screen_w: i32, screen_h: i32) Placement {
+/// A monitor's pixel rectangle (virtual-desktop coordinates).
+pub const MonitorRect = struct { x: i32 = 0, y: i32 = 0, w: i32, h: i32 };
+
+/// Window square + top-left so the crosshair sits at the centre of `mon` + offset,
+/// clamped to stay within that monitor.
+pub fn placement(cfg: CrosshairConfig, mon: MonitorRect) Placement {
     const dim = windowSize(cfg);
-    const cx = @divTrunc(screen_w, 2) + cfg.offset_x;
-    const cy = @divTrunc(screen_h, 2) + cfg.offset_y;
+    const cx = mon.x + @divTrunc(mon.w, 2) + cfg.offset_x;
+    const cy = mon.y + @divTrunc(mon.h, 2) + cfg.offset_y;
     return .{
-        .x = std.math.clamp(cx - @divTrunc(dim, 2), 0, @max(0, screen_w - dim)),
-        .y = std.math.clamp(cy - @divTrunc(dim, 2), 0, @max(0, screen_h - dim)),
+        .x = std.math.clamp(cx - @divTrunc(dim, 2), mon.x, mon.x + @max(0, mon.w - dim)),
+        .y = std.math.clamp(cy - @divTrunc(dim, 2), mon.y, mon.y + @max(0, mon.h - dim)),
         .dim = dim,
     };
 }

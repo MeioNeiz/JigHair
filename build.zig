@@ -27,6 +27,9 @@ pub fn build(b: *std.Build) void {
     exe.root_module.linkSystemLibrary("gdi32", .{});
     exe.root_module.linkSystemLibrary("kernel32", .{});
     exe.root_module.linkSystemLibrary("shell32", .{});
+    exe.root_module.linkSystemLibrary("comctl32", .{});
+    exe.root_module.linkSystemLibrary("comdlg32", .{});
+    exe.root_module.linkSystemLibrary("msimg32", .{});
 
     b.installArtifact(exe);
 

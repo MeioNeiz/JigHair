@@ -1,6 +1,25 @@
 # JigHair — Audit, Test Report & Improvement Plan
 
-_Last updated: 2026-05-28 · Toolchain verified: Zig 0.16.0 (WinGet) · OS: Windows 11 26200_
+_Last updated: 2026-05-30 · Toolchain verified: Zig 0.16.0 (WinGet) · OS: Windows 11 26200_
+
+> **Implementation status (2026-05-30).** Roadmap items #1–#9 are done, plus a native **settings
+> UI** (not originally on the roadmap). Implemented and verified live:
+> - #1 DPI awareness · #2 README/Zig 0.16 · #3 `ReleaseSmall` default · #4 small bounded window ·
+>   #5 lighter config allocator.
+> - #6 **Presets** — config v2 (`presets` map + `active`), backward-compatible with the legacy
+>   top-level `crosshair`. (Preset cycling hotkey intentionally skipped — presets are switched in
+>   the UI.)
+> - #7 **Foreground auto-show** — `EVENT_SYSTEM_FOREGROUND` hook (no polling), process-name match.
+> - #9 **Multi-monitor** — the crosshair follows the focused target app to its monitor.
+> - **Settings UI** (`src/settings_ui.zig`) — native Win32 window: live preview (real renderer),
+>   preset New/Rename/Delete, color pickers, sliders, visibility mode, and a "Running apps" picker
+>   for choosing target games. Save writes `config.json` and applies live (installs/removes the
+>   foreground hook on the fly).
+>
+> Remaining/optional: #8 shape kinds (circle/T/X), #10 composable primitives, #11 polish
+> (`WM_DISPLAYCHANGE`/`WM_DPICHANGED` recenter, remove dead `setPixel`, range clamps). Known minor
+> edge: an app that fires its foreground event while still on one monitor and then hops to another
+> won't re-center until the next focus change (fine for games, which launch on their target monitor).
 
 This document is the result of a full read-through of the codebase, a live test of the
 rendered overlay against several configs, and a design pass for the requested features

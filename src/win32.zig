@@ -24,6 +24,8 @@ pub const HBRUSH = ?*opaque {};
 pub const HICON = ?*opaque {};
 pub const HCURSOR = HICON;
 pub const HMENU = ?*opaque {};
+pub const HMONITOR = ?*opaque {};
+pub const HWINEVENTHOOK = ?*opaque {};
 pub const WPARAM = UINT_PTR;
 pub const LPARAM = LONG_PTR;
 pub const LRESULT = LONG_PTR;
@@ -197,8 +199,10 @@ pub const MF_UNCHECKED: UINT = 0x0000;
 pub const MF_SEPARATOR: UINT = 0x0800;
 pub const TPM_RIGHTBUTTON: UINT = 0x0002;
 
-// ---- Stock icon ----
+// ---- Stock icon / cursor ----
 pub const IDI_APPLICATION: LPCWSTR = @ptrFromInt(32512);
+pub const IDC_ARROW: LPCWSTR = @ptrFromInt(32512);
+pub extern "user32" fn LoadCursorW(HINSTANCE, LPCWSTR) callconv(WINAPI) HCURSOR;
 
 // ---- Shell_NotifyIcon ----
 pub const NIM_ADD: DWORD = 0x0;
@@ -214,6 +218,7 @@ pub const SW_SHOWNORMAL: INT = 1;
 // ---- CreateFile ----
 pub const GENERIC_WRITE: DWORD = 0x40000000;
 pub const CREATE_NEW: DWORD = 1;
+pub const CREATE_ALWAYS: DWORD = 2;
 pub const FILE_ATTRIBUTE_NORMAL: DWORD = 0x80;
 pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(@as(usize, @bitCast(@as(isize, -1))));
 
@@ -265,3 +270,171 @@ pub extern "kernel32" fn CreateDirectoryW(LPCWSTR, ?*anyopaque) callconv(WINAPI)
 pub extern "kernel32" fn CreateFileW(LPCWSTR, DWORD, DWORD, ?*anyopaque, DWORD, DWORD, HANDLE) callconv(WINAPI) HANDLE;
 pub extern "kernel32" fn WriteFile(HANDLE, [*]const u8, DWORD, *DWORD, ?*anyopaque) callconv(WINAPI) BOOL;
 pub extern "kernel32" fn CloseHandle(HANDLE) callconv(WINAPI) BOOL;
+
+// ---- Foreground detection (WinEvent hook + process query + monitor) ----
+pub const EVENT_SYSTEM_FOREGROUND: UINT = 0x0003;
+pub const WINEVENT_OUTOFCONTEXT: UINT = 0x0000;
+pub const PROCESS_QUERY_LIMITED_INFORMATION: DWORD = 0x1000;
+pub const MONITOR_DEFAULTTONEAREST: DWORD = 0x00000002;
+
+/// Out-of-context WinEvent callbacks are delivered on the thread that called
+/// SetWinEventHook — i.e. our GetMessage loop — so no extra thread or locking.
+pub const WINEVENTPROC = *const fn (HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD) callconv(WINAPI) void;
+
+pub const MONITORINFO = extern struct {
+    cbSize: DWORD = @sizeOf(MONITORINFO),
+    rcMonitor: RECT = .{ .left = 0, .top = 0, .right = 0, .bottom = 0 },
+    rcWork: RECT = .{ .left = 0, .top = 0, .right = 0, .bottom = 0 },
+    dwFlags: DWORD = 0,
+};
+
+pub extern "user32" fn SetWinEventHook(UINT, UINT, HINSTANCE, WINEVENTPROC, DWORD, DWORD, UINT) callconv(WINAPI) HWINEVENTHOOK;
+pub extern "user32" fn UnhookWinEvent(HWINEVENTHOOK) callconv(WINAPI) BOOL;
+pub extern "user32" fn GetForegroundWindow() callconv(WINAPI) HWND;
+pub extern "user32" fn GetWindowThreadProcessId(HWND, *DWORD) callconv(WINAPI) DWORD;
+pub extern "user32" fn MonitorFromWindow(HWND, DWORD) callconv(WINAPI) HMONITOR;
+pub extern "user32" fn GetMonitorInfoW(HMONITOR, *MONITORINFO) callconv(WINAPI) BOOL;
+pub extern "kernel32" fn OpenProcess(DWORD, BOOL, DWORD) callconv(WINAPI) HANDLE;
+pub extern "kernel32" fn QueryFullProcessImageNameW(HANDLE, DWORD, [*]u16, *DWORD) callconv(WINAPI) BOOL;
+
+// ============================================================================
+// Settings UI: child controls, common dialog, GDI compositing
+// ============================================================================
+
+pub const COLORREF = DWORD; // 0x00BBGGRR
+pub const HFONT = HGDIOBJ;
+
+// ---- Window styles for the settings window + children ----
+pub const WS_CHILD: DWORD = 0x40000000;
+pub const WS_TABSTOP: DWORD = 0x00010000;
+pub const WS_GROUP: DWORD = 0x00020000;
+pub const WS_VSCROLL: DWORD = 0x00200000;
+pub const WS_BORDER: DWORD = 0x00800000;
+pub const WS_CAPTION: DWORD = 0x00C00000;
+pub const WS_SYSMENU: DWORD = 0x00080000;
+pub const WS_MINIMIZEBOX: DWORD = 0x00020000;
+pub const WS_EX_CONTROLPARENT: DWORD = 0x00010000;
+
+// ---- Control styles ----
+pub const BS_PUSHBUTTON: DWORD = 0x00000000;
+pub const BS_AUTOCHECKBOX: DWORD = 0x00000003;
+pub const BS_GROUPBOX: DWORD = 0x00000007;
+pub const BS_OWNERDRAW: DWORD = 0x0000000B;
+pub const SS_LEFT: DWORD = 0x00000000;
+pub const SS_RIGHT: DWORD = 0x00000002;
+pub const ES_AUTOHSCROLL: DWORD = 0x00000080;
+pub const CBS_DROPDOWNLIST: DWORD = 0x00000003;
+pub const CBS_HASSTRINGS: DWORD = 0x00000200;
+pub const LBS_NOTIFY: DWORD = 0x00000001;
+pub const LBS_HASSTRINGS: DWORD = 0x00000040;
+pub const LBS_NOINTEGRALHEIGHT: DWORD = 0x00000100;
+pub const TBS_HORZ: DWORD = 0x00000000;
+pub const TBS_NOTICKS: DWORD = 0x00000010;
+pub const TBS_BOTH: DWORD = 0x00000008;
+
+// ---- Messages ----
+pub const WM_CREATE: UINT = 0x0001;
+pub const WM_PAINT: UINT = 0x000F;
+pub const WM_SETFONT: UINT = 0x0030;
+pub const WM_HSCROLL: UINT = 0x0114;
+pub const WM_DRAWITEM: UINT = 0x002B;
+pub const WM_NCDESTROY: UINT = 0x0082;
+pub const WM_CTLCOLORSTATIC: UINT = 0x0138;
+
+// Button
+pub const BM_GETCHECK: UINT = 0x00F0;
+pub const BM_SETCHECK: UINT = 0x00F1;
+pub const BST_UNCHECKED: WPARAM = 0;
+pub const BST_CHECKED: WPARAM = 1;
+// ComboBox
+pub const CB_ADDSTRING: UINT = 0x0143;
+pub const CB_RESETCONTENT: UINT = 0x014B;
+pub const CB_GETCURSEL: UINT = 0x0147;
+pub const CB_SETCURSEL: UINT = 0x014E;
+// ListBox
+pub const LB_ADDSTRING: UINT = 0x0180;
+pub const LB_RESETCONTENT: UINT = 0x0184;
+pub const LB_GETCURSEL: UINT = 0x0188;
+pub const LB_DELETESTRING: UINT = 0x0182;
+pub const LB_GETCOUNT: UINT = 0x018B;
+// Trackbar
+pub const TBM_GETPOS: UINT = 0x0400;
+pub const TBM_SETPOS: UINT = 0x0405;
+pub const TBM_SETRANGEMIN: UINT = 0x040E;
+pub const TBM_SETRANGEMAX: UINT = 0x040F;
+
+// ---- Notification codes (HIWORD of WM_COMMAND wParam) ----
+pub const BN_CLICKED: u16 = 0;
+pub const CBN_SELCHANGE: u16 = 1;
+
+// ---- GetStockObject / fonts ----
+pub const DEFAULT_GUI_FONT: INT = 17;
+
+// ---- BitBlt raster op ----
+pub const SRCCOPY: DWORD = 0x00CC0020;
+
+// ---- Common controls init ----
+pub const ICC_BAR_CLASSES: DWORD = 0x00000004;
+pub const ICC_STANDARD_CLASSES: DWORD = 0x00004000;
+
+pub const INITCOMMONCONTROLSEX = extern struct {
+    dwSize: DWORD = @sizeOf(INITCOMMONCONTROLSEX),
+    dwICC: DWORD,
+};
+
+pub const DRAWITEMSTRUCT = extern struct {
+    CtlType: UINT,
+    CtlID: UINT,
+    itemID: UINT,
+    itemAction: UINT,
+    itemState: UINT,
+    hwndItem: HWND,
+    hDC: HDC,
+    rcItem: RECT,
+    itemData: ULONG_PTR,
+};
+
+// ---- ChooseColor (comdlg32) ----
+pub const CC_RGBINIT: DWORD = 0x00000001;
+pub const CC_FULLOPEN: DWORD = 0x00000002;
+pub const CC_ANYCOLOR: DWORD = 0x00000100;
+
+pub const CHOOSECOLORW = extern struct {
+    lStructSize: DWORD = @sizeOf(CHOOSECOLORW),
+    hwndOwner: HWND = null,
+    hInstance: HWND = null,
+    rgbResult: COLORREF = 0,
+    lpCustColors: [*]COLORREF,
+    Flags: DWORD = 0,
+    lCustData: LPARAM = 0,
+    lpfnHook: ?*anyopaque = null,
+    lpTemplateName: ?LPCWSTR = null,
+};
+
+pub const WNDENUMPROC = *const fn (HWND, LPARAM) callconv(WINAPI) BOOL;
+
+// ---- user32 ----
+pub extern "user32" fn SendMessageW(HWND, UINT, WPARAM, LPARAM) callconv(WINAPI) LRESULT;
+pub extern "user32" fn SetWindowTextW(HWND, LPCWSTR) callconv(WINAPI) BOOL;
+pub extern "user32" fn GetWindowTextW(HWND, [*]u16, INT) callconv(WINAPI) INT;
+pub extern "user32" fn GetWindowTextLengthW(HWND) callconv(WINAPI) INT;
+pub extern "user32" fn EnableWindow(HWND, BOOL) callconv(WINAPI) BOOL;
+pub extern "user32" fn InvalidateRect(HWND, ?*const RECT, BOOL) callconv(WINAPI) BOOL;
+pub extern "user32" fn IsWindowVisible(HWND) callconv(WINAPI) BOOL;
+pub extern "user32" fn EnumWindows(WNDENUMPROC, LPARAM) callconv(WINAPI) BOOL;
+pub extern "user32" fn GetClientRect(HWND, *RECT) callconv(WINAPI) BOOL;
+pub extern "user32" fn FillRect(HDC, *const RECT, HBRUSH) callconv(WINAPI) INT;
+pub extern "user32" fn IsWindow(HWND) callconv(WINAPI) BOOL;
+pub extern "user32" fn GetDlgItem(HWND, INT) callconv(WINAPI) HWND;
+pub extern "user32" fn GetDlgCtrlID(HWND) callconv(WINAPI) INT;
+pub extern "user32" fn AdjustWindowRect(*RECT, DWORD, BOOL) callconv(WINAPI) BOOL;
+
+// ---- gdi32 ----
+pub extern "gdi32" fn CreateSolidBrush(COLORREF) callconv(WINAPI) HBRUSH;
+pub extern "gdi32" fn BitBlt(HDC, INT, INT, INT, INT, HDC, INT, INT, DWORD) callconv(WINAPI) BOOL;
+pub extern "gdi32" fn GetStockObject(INT) callconv(WINAPI) HGDIOBJ;
+
+// ---- comctl32 / comdlg32 / msimg32 ----
+pub extern "comctl32" fn InitCommonControlsEx(*const INITCOMMONCONTROLSEX) callconv(WINAPI) BOOL;
+pub extern "comdlg32" fn ChooseColorW(*CHOOSECOLORW) callconv(WINAPI) BOOL;
+pub extern "msimg32" fn AlphaBlend(HDC, INT, INT, INT, INT, HDC, INT, INT, INT, INT, BLENDFUNCTION) callconv(WINAPI) BOOL;
