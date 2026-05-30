@@ -360,8 +360,8 @@ pub const LB_GETCOUNT: UINT = 0x018B;
 // Trackbar
 pub const TBM_GETPOS: UINT = 0x0400;
 pub const TBM_SETPOS: UINT = 0x0405;
-pub const TBM_SETRANGEMIN: UINT = 0x040E;
-pub const TBM_SETRANGEMAX: UINT = 0x040F;
+pub const TBM_SETRANGEMIN: UINT = 0x0407; // WM_USER+7
+pub const TBM_SETRANGEMAX: UINT = 0x0408; // WM_USER+8
 
 // ---- Notification codes (HIWORD of WM_COMMAND wParam) ----
 pub const BN_CLICKED: u16 = 0;

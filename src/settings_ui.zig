@@ -38,6 +38,8 @@ const ID_TB_GAP: u32 = 1013;
 const ID_TB_DOTSIZE: u32 = 1014;
 const ID_TB_OFFX: u32 = 1015;
 const ID_TB_OFFY: u32 = 1016;
+const ID_TB_ALPHA: u32 = 1017;
+const ID_TB_OALPHA: u32 = 1018;
 const ID_CHK_DOT: u32 = 1020;
 // Value labels live at trackbar id + 100.
 const VAL_OFFSET: u32 = 100;
@@ -68,6 +70,8 @@ const TRACKS = [_]Track{
     .{ .id = ID_TB_DOTSIZE, .min = 0, .max = 20 },
     .{ .id = ID_TB_OFFX, .min = -200, .max = 200 },
     .{ .id = ID_TB_OFFY, .min = -200, .max = 200 },
+    .{ .id = ID_TB_ALPHA, .min = 0, .max = 255 },
+    .{ .id = ID_TB_OALPHA, .min = 0, .max = 255 },
 };
 
 const Ui = struct {
@@ -244,6 +248,12 @@ fn buildControls() void {
     label(L("Preview"), 396, 14, 80);
     _ = mk(CLS_BUTTON, null, win32.BS_OWNERDRAW, 396, 34, PREVIEW_DIM, PREVIEW_DIM, ID_PREVIEW);
 
+    // Opacity sliders, tucked under the preview so the effect is visible live.
+    label(L("Opacity"), 396, 214, 150);
+    mkTrack(ID_TB_ALPHA, 396, 232, 120, 0, 255);
+    label(L("Outline opacity"), 396, 274, 150);
+    mkTrack(ID_TB_OALPHA, 396, 292, 120, 0, 255);
+
     // Visibility.
     label(L("Show crosshair:"), 12, 348, 110);
     _ = mk(CLS_COMBO, null, win32.CBS_DROPDOWNLIST | win32.CBS_HASSTRINGS | win32.WS_TABSTOP, 128, 344, 228, 120, ID_VISMODE);
@@ -336,6 +346,8 @@ fn syncEditControls() void {
     setTrack(ID_TB_DOTSIZE, c.dot_size);
     setTrack(ID_TB_OFFX, c.offset_x);
     setTrack(ID_TB_OFFY, c.offset_y);
+    setTrack(ID_TB_ALPHA, c.color[3]);
+    setTrack(ID_TB_OALPHA, c.outline_color[3]);
     _ = win32.SendMessageW(win32.GetDlgItem(ui.hwnd, @intCast(ID_CHK_DOT)), win32.BM_SETCHECK, if (c.dot) win32.BST_CHECKED else win32.BST_UNCHECKED, 0);
     _ = win32.SetWindowTextW(win32.GetDlgItem(ui.hwnd, @intCast(ID_NAME)), @ptrCast(toWZ(ui.work.presets[ui.edit].name.slice())));
     refreshPreview();
@@ -634,6 +646,8 @@ fn settingsProc(hwnd: win32.HWND, msg: win32.UINT, wparam: win32.WPARAM, lparam:
                 ID_TB_DOTSIZE => c.dot_size = pos,
                 ID_TB_OFFX => c.offset_x = pos,
                 ID_TB_OFFY => c.offset_y = pos,
+                ID_TB_ALPHA => c.color[3] = @intCast(pos),
+                ID_TB_OALPHA => c.outline_color[3] = @intCast(pos),
                 else => return 0,
             }
             setValueLabel(id, pos);
